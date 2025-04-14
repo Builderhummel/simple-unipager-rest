@@ -8,13 +8,13 @@ app = Flask(__name__)
 
 # Configuration
 PASSWORD = "your_password"
-WS_ENDPOINTS = ["ws://192.168.1.10:8073", "ws://192.168.1.11:8073"]  # Add more as needed
-T_DELAY = 1.0  # Delay in seconds between sends
+WS_ENDPOINTS = ["ws://192.168.188.21:8055", "ws://192.168.188.22:8055"]  # Add more as needed
+T_DELAY = 5.0  # Delay in seconds between sends
 
 def send_to_ws(endpoint, ric, msg, m_type, m_func):
     try:
         ws = websocket.create_connection(endpoint)
-        ws.send(json.dumps({"Authenticate": PASSWORD}))
+        #ws.send(json.dumps({"Authenticate": PASSWORD}))
         payload = {
             "SendMessage": {
                 "addr": ric,
