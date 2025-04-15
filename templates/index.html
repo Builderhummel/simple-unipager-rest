@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UniPager Message Distribution</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .transmitter-status {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .transmitter-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: green;
+        }
+        .transmitting .status-dot {
+            background: red;
+        }
+        .history {
+            height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-top: 20px;
+        }
+        .history-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .history-item:last-child {
+            border-bottom: none;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>UniPager Message Distribution</h1>
+        
+        <form id="messageForm">
+            <div class="input-group">
+                <label for="RIC">RIC:</label>
+                <input type="number" id="RIC" name="RIC" required>
+            </div>
+            
+            <div class="input-group">
+                <label for="MSG">Message:</label>
+                <input type="text" id="MSG" name="MSG" required>
+            </div>
+            
+            <div class="input-group">
+                <label for="m_type">Message Type:</label>
+                <select id="m_type" name="m_type">
+                    <option value="AlphaNum">AlphaNum</option>
+                    <option value="Numeric">Numeric</option>
+                    <option value="Special">Special</option>
+                </select>
+            </div>
+            
+            <div class="input-group">
+                <label for="m_func">Function:</label>
+                <select id="m_func" name="m_func">
+                    <option value="Func3">Func3</option>
+                    <option value="Func1">Func1</option>
+                    <option value="Func2">Func2</option>
+                </select>
+            </div>
+            
+            <button type="submit">Send Message</button>
+        </form>
+
+        <div class="transmitter-status">
+            {% for endpoint in endpoints %}
+            <div class="transmitter-item">
+                <span class="status-dot"></span>
+                <span>{{ endpoint.split('://')[1].split(':')[0] }}</span>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="history">
+            <h3>Last 20 Transmissions</h3>
+            <div id="transmissionHistory">
+                {% for transmission in history %}
+                <div class="history-item">
+                    <span>{{ transmission.timestamp }}</span>
+                    <span>RIC: {{ transmission.ric }}</span>
+                    <span>Message: {{ transmission.msg }}</span>
+                    <span>Type: {{ transmission.m_type }}</span>
+                    <span>Func: {{ transmission.m_func }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('messageForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = {
+                RIC: parseInt(document.getElementById('RIC').value),
+                MSG: document.getElementById('MSG').value,
+                m_type: document.getElementById('m_type').value,
+                m_func: document.getElementById('m_func').value
+            };
+            
+            try {
+                const response = await fetch('/send', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                
+                const result = await response.json();
+                alert(result.status);
+                
+                // Clear the form after successful submission
+                document.getElementById('RIC').value = '';
+                document.getElementById('MSG').value = '';
+                document.getElementById('m_type').value = 'AlphaNum';
+                document.getElementById('m_func').value = 'Func3';
+                
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error sending message: ' + error.message);
+            }
+        });
+
+        // Check transmission status periodically
+        setInterval(async () => {
+            try {
+                const response = await fetch('/transmitting');
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                const data = await response.json();
+                const dots = document.querySelectorAll('.status-dot');
+                dots.forEach(dot => dot.classList.toggle('transmitting', data.transmitting));
+            } catch (error) {
+                console.error('Error checking status:', error);
+            }
+        }, 1000);
+    </script>
+</body>
+</html>
