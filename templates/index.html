@@ -231,16 +231,16 @@
         function showNotification(message, isError = false) {
             const notification = document.getElementById('notification');
             notification.textContent = message;
-            notification.className = 'notification ' + (isError ? 'error' : '');
+            notification.classList.remove('error');
+            notification.classList.remove('success');
+            if (isError) {
+                notification.classList.add('error');
+            } else {
+                notification.classList.add('success');
+            }
             notification.style.display = 'block';
-            
-            // Remove notification after 5 seconds
             setTimeout(() => {
-                notification.classList.add('slideOut');
-                setTimeout(() => {
-                    notification.style.display = 'none';
-                    notification.classList.remove('slideOut');
-                }, 300); // Wait for animation
+                notification.style.display = 'none';
             }, 5000);
         }
 
@@ -268,31 +268,38 @@
 
         document.getElementById('messageForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            
-            const formData = {
-                RIC: parseInt(document.getElementById('RIC').value),
-                MSG: document.getElementById('MSG').value,
-                m_type: document.getElementById('m_type').value,
-                m_func: document.getElementById('m_func').value
+            const formData = new FormData(e.target);
+            const data = {
+                RIC: parseInt(formData.get('RIC')),  // Convert RIC to number
+                MSG: formData.get('MSG'),
+                m_type: formData.get('m_type'),
+                m_func: formData.get('m_func')
             };
-            
+
             try {
+                // Show notification that distribution is starting
+                showNotification(`Sending message "${data.MSG}" to ${data.RIC}...`, false);
+                
                 const response = await fetch('/send', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify(formData)
+                    body: JSON.stringify(data)
                 });
-                
+
                 if (!response.ok) {
                     throw new Error('Network response was not ok');
                 }
-                
+
                 const result = await response.json();
-                showNotification(result.status);
-                updateHistory();
-                
+                if (result.success) {
+                    // Show success message with the actual message sent
+                    showNotification(`Message "${data.MSG}" sent successfully to ${data.RIC}`);
+                } else {
+                    throw new Error(result.error || 'Failed to send message');
+                }
+
             } catch (error) {
                 console.error('Error:', error);
                 showNotification('Error sending message: ' + error.message, true);
