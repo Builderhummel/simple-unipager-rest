@@ -12,9 +12,11 @@ PASSWORD = "your_password"
 WS_ENDPOINTS = ["ws://192.168.188.21:8055", "ws://192.168.188.22:8055"]  # Add more as needed
 T_DELAY = 5.0  # Delay in seconds between sends
 
-# Global variable to store transmission history
+# Global variables
 transmission_history = []
 MAX_HISTORY = 20
+transmitting_status = {endpoint: False for endpoint in WS_ENDPOINTS}
+previous_transmitting_status = {endpoint: False for endpoint in WS_ENDPOINTS}
 
 def send_to_ws(endpoint, ric, msg, m_type, m_func):
     try:
@@ -37,12 +39,29 @@ def send_to_ws(endpoint, ric, msg, m_type, m_func):
 def index():
     return render_template('index.html', 
                          endpoints=WS_ENDPOINTS,
-                         history=transmission_history)
+                         history=transmission_history,
+                         ws_endpoints=WS_ENDPOINTS)
 
 @app.route("/transmitting", methods=["GET"])
 def transmitting():
-    # This endpoint will be used to check transmission status
-    return jsonify({"transmitting": True})
+    # Get current status
+    current_status = {endpoint: transmitting_status[endpoint] for endpoint in WS_ENDPOINTS}
+    
+    # Check if there's any change in status
+    status_changed = False
+    for endpoint in WS_ENDPOINTS:
+        if current_status[endpoint] != previous_transmitting_status[endpoint]:
+            status_changed = True
+            break
+    
+    # Update previous status if there was a change
+    if status_changed:
+        previous_transmitting_status.update(current_status)
+    
+    return jsonify({
+        "transmitting": any(transmitting_status.values()),
+        "transmitters": current_status
+    })
 
 @app.route("/send", methods=["POST"])
 def send_message():
@@ -69,8 +88,16 @@ def send_message():
 
     def dispatch():
         for endpoint in WS_ENDPOINTS:
-            send_to_ws(endpoint, ric, msg, m_type, m_func)
-            time.sleep(T_DELAY)
+            # Set transmitting status
+            transmitting_status[endpoint] = True
+            try:
+                send_to_ws(endpoint, ric, msg, m_type, m_func)
+                time.sleep(T_DELAY)
+            except Exception as e:
+                print(f"Error sending to {endpoint}: {e}")
+            finally:
+                # Reset transmitting status
+                transmitting_status[endpoint] = False
 
     threading.Thread(target=dispatch).start()
     return jsonify({"status": "Message dispatch initiated"}), 200
