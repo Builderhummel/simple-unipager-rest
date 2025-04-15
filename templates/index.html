@@ -310,17 +310,21 @@
                 const dots = document.querySelectorAll('.transmitter-item');
                 dots.forEach(dot => {
                     const ip = dot.querySelector('span:last-child').textContent;
-                    // Find the full endpoint URL that matches this IP
                     const endpoint = ws_endpoints.find(e => e.includes(ip));
                     if (endpoint) {
-                        const isTransmitting = data.transmitters[endpoint];
                         const statusDot = dot.querySelector('.status-dot');
+                        const isTransmitting = data.transmitters[endpoint];
+                        const isAvailable = data.availability[endpoint];
                         
-                        // Only update if the status has changed
-                        if (isTransmitting && !statusDot.classList.contains('transmitting')) {
-                            statusDot.classList.add('transmitting');
-                        } else if (!isTransmitting && statusDot.classList.contains('transmitting')) {
-                            statusDot.classList.remove('transmitting');
+                        // Update color based on availability and transmission status
+                        if (!isAvailable) {
+                            statusDot.style.background = '#808080'; // gray
+                        } else {
+                            if (isTransmitting) {
+                                statusDot.style.background = 'red';
+                            } else {
+                                statusDot.style.background = 'green';
+                            }
                         }
                     }
                 });

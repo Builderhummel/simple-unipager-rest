@@ -4,6 +4,8 @@ import json
 import websocket
 from flask import Flask, request, jsonify, render_template
 from datetime import datetime
+import requests
+from threading import Timer
 
 app = Flask(__name__)
 
@@ -16,6 +18,7 @@ T_DELAY = 5.0  # Delay in seconds between sends
 transmission_history = []
 MAX_HISTORY = 20
 transmitting_status = {endpoint: False for endpoint in WS_ENDPOINTS}
+availability_status = {endpoint: False for endpoint in WS_ENDPOINTS}
 previous_transmitting_status = {endpoint: False for endpoint in WS_ENDPOINTS}
 
 def send_to_ws(endpoint, ric, msg, m_type, m_func):
@@ -35,6 +38,23 @@ def send_to_ws(endpoint, ric, msg, m_type, m_func):
     except Exception as e:
         print(f"Error sending to {endpoint}: {e}")
 
+def check_available():
+    for endpoint in WS_ENDPOINTS:
+        try:
+            ip = endpoint.split('://')[1].split(':')[0]
+            response = requests.get(f'http://{ip}:8073/status.json', timeout=2)
+            if response.status_code == 200:
+                availability_status[endpoint] = True
+            else:
+                availability_status[endpoint] = False
+        except Exception:
+            availability_status[endpoint] = False
+    # Schedule next check
+    Timer(5.0, check_available).start()
+
+# Start the availability check
+check_available()
+
 @app.route("/")
 def index():
     return render_template('index.html', 
@@ -46,6 +66,7 @@ def index():
 def transmitting():
     # Get current status
     current_status = {endpoint: transmitting_status[endpoint] for endpoint in WS_ENDPOINTS}
+    current_availability = {endpoint: availability_status[endpoint] for endpoint in WS_ENDPOINTS}
     
     # Check if there's any change in status
     status_changed = False
@@ -60,7 +81,8 @@ def transmitting():
     
     return jsonify({
         "transmitting": any(transmitting_status.values()),
-        "transmitters": current_status
+        "transmitters": current_status,
+        "availability": current_availability
     })
 
 @app.route("/send", methods=["POST"])
