@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UniPager Message Distribution</title>
+    <title>Signalspielplatz TX Controlpanel</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -153,7 +153,7 @@
 <body>
     <div id="notification" class="notification"></div>
     <div class="container">
-        <h1>UniPager Message Distribution</h1>
+        <h1>Signalspielplatz TX Controlpanel</h1>
         
         <!-- Initialize endpoints from template -->
         <script>
@@ -198,12 +198,14 @@
             
             <div class="transmitter-status">
                 <h2>Active Transmitters</h2>
-                {% for endpoint in endpoints %}
-                <div class="transmitter-item">
-                    <span class="status-dot"></span>
-                    <span>{{ endpoint.split('://')[1].split(':')[0] }}</span>
+                <div class="transmitter-items">
+                    {% for endpoint in endpoints %}
+                    <div class="transmitter-item">
+                        <div class="status-dot"></div>
+                        <span>{{ endpoint.split('://')[1].split(':')[0] }} (@DL0TUH)</span>
+                    </div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
             </div>
         </div>
 
@@ -309,21 +311,20 @@
                 // Update status dots for each transmitter
                 const dots = document.querySelectorAll('.transmitter-item');
                 dots.forEach(dot => {
-                    const ip = dot.querySelector('span:last-child').textContent;
-                    const endpoint = ws_endpoints.find(e => e.includes(ip));
-                    if (endpoint) {
-                        const statusDot = dot.querySelector('.status-dot');
-                        const isTransmitting = data.transmitters[endpoint];
-                        const isAvailable = data.availability[endpoint];
-                        
-                        // Update color based on availability and transmission status
-                        if (!isAvailable) {
-                            statusDot.style.background = '#808080'; // gray
-                        } else {
-                            if (isTransmitting) {
-                                statusDot.style.background = 'red';
+                    const ipElement = dot.querySelector('span');
+                    if (ipElement) {
+                        const ip = ipElement.textContent.split(' ')[0]; // Get IP before the callsign
+                        const endpoint = ws_endpoints.find(e => e.includes(ip));
+                        if (endpoint) {
+                            const statusDot = dot.querySelector('.status-dot');
+                            const isTransmitting = data.transmitters[endpoint];
+                            const isAvailable = data.availability[endpoint];
+                            
+                            // Update color based on availability and transmission status
+                            if (!isAvailable) {
+                                statusDot.style.background = '#808080'; // gray
                             } else {
-                                statusDot.style.background = 'green';
+                                statusDot.style.background = isTransmitting ? 'red' : 'green';
                             }
                         }
                     }
