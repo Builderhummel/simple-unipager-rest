@@ -55,6 +55,27 @@ def check_available():
 # Start the availability check
 check_available()
 
+def dispatch_message(ric, msg, m_type, m_func):
+    """Send message to all available transmitters with delay between sends"""
+    # Get current availability status
+    current_availability = {endpoint: availability_status[endpoint] for endpoint in WS_ENDPOINTS}
+    
+    # Send to all available transmitters
+    for endpoint in WS_ENDPOINTS:
+        if current_availability[endpoint]:
+            try:
+                # Update transmitting status
+                transmitting_status[endpoint] = True
+                send_to_ws(endpoint, ric, msg, m_type, m_func)
+                # Wait before sending to next transmitter
+                time.sleep(T_DELAY)
+                # Reset transmitting status after sending
+                transmitting_status[endpoint] = False
+            except Exception as e:
+                print(f"Error sending to {endpoint}: {e}")
+                # If sending fails, mark as not transmitting
+                transmitting_status[endpoint] = False
+
 @app.route("/")
 def index():
     return render_template('index.html', 
@@ -93,36 +114,27 @@ def send_message():
     m_type = data.get("m_type", "AlphaNum")
     m_func = data.get("m_func", "Func3")
 
-    # print output in console
-    print(f"Sending message to { ric } with message { msg } and type { m_type } and function { m_func }")
-
-    # Add to transmission history
-    transmission = {
-        "timestamp": datetime.now().strftime("%H:%M:%S"),
-        "ric": ric,
-        "msg": msg,
-        "m_type": m_type,
-        "m_func": m_func
-    }
-    transmission_history.append(transmission)
-    if len(transmission_history) > MAX_HISTORY:
-        transmission_history.pop(0)
-
-    def dispatch():
-        for endpoint in WS_ENDPOINTS:
-            # Set transmitting status
-            transmitting_status[endpoint] = True
-            try:
-                send_to_ws(endpoint, ric, msg, m_type, m_func)
-                time.sleep(T_DELAY)
-            except Exception as e:
-                print(f"Error sending to {endpoint}: {e}")
-            finally:
-                # Reset transmitting status
-                transmitting_status[endpoint] = False
-
-    threading.Thread(target=dispatch).start()
-    return jsonify({"status": "Message dispatch initiated"}), 200
+    try:
+        # Use the new dispatch function that skips offline transmitters
+        dispatch_message(ric, msg, m_type, m_func)
+        
+        # Add to history
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        transmission_history.insert(0, {
+            "timestamp": timestamp,
+            "ric": ric,
+            "msg": msg,
+            "m_type": m_type,
+            "m_func": m_func
+        })
+        
+        # Keep only the last MAX_HISTORY entries
+        if len(transmission_history) > MAX_HISTORY:
+            transmission_history.pop()
+            
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
