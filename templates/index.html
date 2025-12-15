@@ -277,9 +277,20 @@
             };
 
             try {
-                // Show notification that distribution is starting
+                // 1. Check if a transmission is in progress
+                const statusResponse = await fetch('/transmitting');
+                if (!statusResponse.ok) throw new Error('Network response was not ok');
+                const statusData = await statusResponse.json();
+
+                if (statusData.transmitting) {
+                    // 2. If so, show notification and do not send
+                    showNotification('A transmission is currently in progress. Please wait until it finishes.', true);
+                    return;
+                }
+
+                // 3. If not, proceed
                 showNotification(`Sending message "${data.MSG}" to ${data.RIC}...`, false);
-                
+
                 const response = await fetch('/send', {
                     method: 'POST',
                     headers: {
@@ -294,7 +305,6 @@
 
                 const result = await response.json();
                 if (result.success) {
-                    // Show success message with the actual message sent
                     showNotification(`Message "${data.MSG}" sent successfully to ${data.RIC}`);
                 } else {
                     throw new Error(result.error || 'Failed to send message');
@@ -306,6 +316,7 @@
             }
         });
 
+
         // Check transmission status periodically
         setInterval(async () => {
             try {
@@ -314,7 +325,7 @@
                     throw new Error('Network response was not ok');
                 }
                 const data = await response.json();
-                
+
                 // Update status dots for each transmitter
                 const dots = document.querySelectorAll('.transmitter-item');
                 dots.forEach(dot => {

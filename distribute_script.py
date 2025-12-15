@@ -11,7 +11,7 @@ app = Flask(__name__)
 
 # Configuration
 PASSWORD = "your_password"
-WS_ENDPOINTS = ["ws://192.168.188.21:8055", "ws://192.168.188.22:8055"]  # Add more as needed
+WS_ENDPOINTS = ["ws://192.168.188.21:8055", "ws://192.168.188.22:8055", "ws://localhost:8055"]  # Add more as needed
 T_DELAY = 5.0  # Delay in seconds between sends
 
 # Global variables
@@ -20,6 +20,7 @@ MAX_HISTORY = 20
 transmitting_status = {endpoint: False for endpoint in WS_ENDPOINTS}
 availability_status = {endpoint: False for endpoint in WS_ENDPOINTS}
 previous_transmitting_status = {endpoint: False for endpoint in WS_ENDPOINTS}
+in_transmission = False
 
 def send_to_ws(endpoint, ric, msg, m_type, m_func):
     try:
@@ -56,10 +57,15 @@ def check_available():
 check_available()
 
 def dispatch_message(ric, msg, m_type, m_func):
+    global in_transmission
+    if in_transmission:
+        return  # Prevent overlapping transmissions
+
     """Send message to all available transmitters with delay between sends"""
     # Get current availability status
     current_availability = {endpoint: availability_status[endpoint] for endpoint in WS_ENDPOINTS}
-    
+
+    in_transmission = True
     # Send to all available transmitters
     for endpoint in WS_ENDPOINTS:
         if current_availability[endpoint]:
@@ -75,6 +81,7 @@ def dispatch_message(ric, msg, m_type, m_func):
                 print(f"Error sending to {endpoint}: {e}")
                 # If sending fails, mark as not transmitting
                 transmitting_status[endpoint] = False
+    in_transmission = False
 
 @app.route("/")
 def index():
