@@ -121,6 +121,9 @@ def send_message():
     m_type = data.get("m_type", "AlphaNum")
     m_func = data.get("m_func", "Func3")
 
+    if in_transmission:
+        return jsonify({"success": False, "error": "Transmission in progress"}), 429
+
     try:
         # Use the new dispatch function that skips offline transmitters
         dispatch_message(ric, msg, m_type, m_func)
